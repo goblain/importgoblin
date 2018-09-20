@@ -150,7 +150,7 @@ func processFile(file string) error {
 		dir := fmt.Sprintf("%04d/%02d/%02d", date.Year(), date.Month(), date.Day())
 		dest := fmt.Sprintf("%s/%s/%s_%s%s", ic.to, dir, datetime, md5sum, ext)
 
-		if _, err := os.Stat(dest); os.IsNotExist(err) {
+		if _, err := os.Stat(dest); !os.IsNotExist(err) {
 			log.Infof("copy to %s", dest)
 			err = copy(file, dest)
 			if err != nil {
