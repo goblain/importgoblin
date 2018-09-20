@@ -75,7 +75,6 @@ func copy(srcFile, dstFile string) error {
 	if err != nil {
 		return err
 	}
-	log.Error(dstDir)
 	dst, err := os.Create(dstFile)
 	if err != nil {
 		return err
@@ -90,37 +89,53 @@ func copy(srcFile, dstFile string) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func processFile(file string) error {
-	log.WithField("file", file).Debug("Processing")
+func getFileMD5(file string) (string, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer f.Close()
 
 	hasher := md5.New()
 	if _, err := io.Copy(hasher, f); err != nil {
-		return err
+		return "", err
 	}
 
-	f.Seek(0, 0)
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+func getTimeFromEXIV(file string) (*time.Time, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	meta, err := exif.Decode(f)
+	if err != nil {
+		return nil, err
+	}
+	taken, err := meta.DateTime()
+	if err != nil {
+		return nil, err
+	}
+	log.WithField("file", file).Debugf("EXIV Taken: %v", taken)
+	return &taken, nil
+}
+
+func processFile(file string) error {
+	log := log.WithField("file", file)
+	log.Debug("Processing")
+	md5sum, err := getFileMD5(file)
 
 	var date *time.Time
 	ext := path.Ext(strings.ToLower(file))
 	if imageExtensions[ext] == "jpg" {
-		meta, err := exif.Decode(f)
-		if err != nil {
-			return err
-		}
-		taken, err := meta.DateTime()
-		if err != nil {
-			return err
-		}
-		date = &taken
-		log.WithField("file", file).Debugf("EXIV Taken: %v", taken)
+		date, err = getTimeFromEXIV(file)
 	}
 
 	if date == nil {
@@ -129,18 +144,40 @@ func processFile(file string) error {
 		date = &taken
 	}
 	datetime := fmt.Sprintf("%d%02d%02d%02d%02d%02d", date.Year(), date.Month(), date.Day(), date.Hour(), date.Minute(), date.Second())
-	md5sum := hex.EncodeToString(hasher.Sum(nil))
+
 	if ic.force || !wasProcessed(datetime, md5sum) {
 		dir := fmt.Sprintf("%04d/%02d/%02d", date.Year(), date.Month(), date.Day())
 		dest := fmt.Sprintf("%s/%s/%s_%s%s", ic.to, dir, datetime, md5sum, ext)
-		log.WithField("file", file).Infof("copy to %s", dest)
+		log.Infof("copy to %s", dest)
 		err = copy(file, dest)
 		if err != nil {
-			log.WithField("file", file).Errorf("Copy failed with %s", err.Error())
+			log.Errorf("Copy failed with %s", err.Error())
+		}
+		err = validate(dest, md5sum)
+		if err != nil {
+			log.Errorf("Copy failed with %s", err.Error())
+			return fmt.Errorf("validation broken : %s", err.Error())
+		}
+		if ic.delete {
+			err = os.Remove(file)
+			if err != nil {
+				log.Error()
+			}
 		}
 		markProcessed(datetime, md5sum)
 	} else {
-		log.WithField("file", file).Info("Already processed before. SKIP")
+		log.Info("Already processed before. SKIP")
+	}
+	return nil
+}
+
+func validate(dest, md5 string) error {
+	destMD5, err := getFileMD5(dest)
+	if err != nil {
+		return fmt.Errorf("md5 broken %s", err.Error())
+	}
+	if destMD5 != md5 {
+		return fmt.Errorf("src/dst MD5 missmatch")
 	}
 	return nil
 }
