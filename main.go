@@ -145,26 +145,44 @@ func processFile(file string) error {
 	}
 	datetime := fmt.Sprintf("%d%02d%02d%02d%02d%02d", date.Year(), date.Month(), date.Day(), date.Hour(), date.Minute(), date.Second())
 
-	if ic.force || !wasProcessed(datetime, md5sum) {
+	processed := wasProcessed(datetime, md5sum)
+	if ic.force || !processed {
 		dir := fmt.Sprintf("%04d/%02d/%02d", date.Year(), date.Month(), date.Day())
 		dest := fmt.Sprintf("%s/%s/%s_%s%s", ic.to, dir, datetime, md5sum, ext)
-		log.Infof("copy to %s", dest)
-		err = copy(file, dest)
-		if err != nil {
-			log.Errorf("Copy failed with %s", err.Error())
+
+		if _, err := os.Stat(dest); os.IsNotExist(err) {
+			log.Infof("copy to %s", dest)
+			err = copy(file, dest)
+			if err != nil {
+				log.Errorf("Copy failed with %s", err.Error())
+			}
+		} else {
+			err = validate(dest, md5sum)
+			if err != nil {
+				return fmt.Errorf("Destination exists and has different content, SKIP")
+			}
 		}
+
+		// check if destination has correct checksum
 		err = validate(dest, md5sum)
 		if err != nil {
 			log.Errorf("Copy failed with %s", err.Error())
 			return fmt.Errorf("validation broken : %s", err.Error())
 		}
+
+		// delete file if deletion enabled
 		if ic.delete {
 			err = os.Remove(file)
 			if err != nil {
-				log.Error()
+				log.Error("Delete attempt failed")
 			}
 		}
-		markProcessed(datetime, md5sum)
+
+		// mark as processed if was not yet marked
+		if !processed {
+			markProcessed(datetime, md5sum)
+		}
+
 	} else {
 		log.Info("Already processed before. SKIP")
 	}
