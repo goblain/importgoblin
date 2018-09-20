@@ -20,11 +20,12 @@ import (
 )
 
 type importConfig struct {
-	from   string
-	to     string
-	db     string
-	delete bool
-	force  bool
+	from    string
+	to      string
+	db      string
+	exclude string
+	delete  bool
+	force   bool
 }
 
 var ic importConfig
@@ -37,9 +38,19 @@ var imageExtensions = map[string]string{
 
 var db *sql.DB
 
+func excluded(filepath string) bool {
+	if strings.Contains(filepath, ic.exclude) {
+		return true
+	}
+	return false
+}
+
 func getFilesToProcess() []string {
 	files := []string{}
 	filepath.Walk(ic.from, func(filepath string, f os.FileInfo, err error) error {
+		if excluded(filepath) {
+			return nil
+		}
 		ext := path.Ext(strings.ToLower(filepath))
 		if _, ok := imageExtensions[ext]; ok {
 			files = append(files, filepath)
@@ -284,6 +295,7 @@ func main() {
 	importCmd.Flags().StringVarP(&ic.db, "db", "d", homeDir+"/.importgoblin/importgoblin.sqlite3", "Location of the database")
 	importCmd.Flags().BoolVar(&ic.delete, "delete", false, "If set, original files will be deleted as part of the import process")
 	importCmd.Flags().BoolVarP(&ic.force, "force-import", "i", false, "force import even if already processed")
+	importCmd.Flags().StringVarP(&ic.exclude, "exclude", "e", "", "exclude files including this string")
 
 	rootCmd.AddCommand(importCmd)
 
