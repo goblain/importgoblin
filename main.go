@@ -154,17 +154,20 @@ func processFile(file string) error {
 		dest := fmt.Sprintf("%s/%s/%s_%s%s", ic.to, dir, datetime, md5sum, ext)
 
 		_, err := os.Stat(dest)
-		if err != os.ErrNotExist {
+		if err != nil {
+			// Destination file not exists
 			log.Infof("copy to %s", dest)
 			err = copy(file, dest)
 			if err != nil {
 				log.Errorf("Copy failed with %s", err.Error())
 			}
 		} else {
+			// Destination already exists
 			err = validate(dest, md5sum)
 			if err != nil {
 				return fmt.Errorf("Destination exists and has different content, SKIP")
 			}
+			log.Info("File already exists with the same checksum")
 		}
 
 		// check if destination has correct checksum
@@ -180,6 +183,7 @@ func processFile(file string) error {
 			if err != nil {
 				log.Error("Delete attempt failed")
 			}
+			log.Info("Deleted")
 		}
 
 		// mark as processed if was not yet marked
