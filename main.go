@@ -49,6 +49,50 @@ func getFilesToProcess() []string {
 	return files
 }
 
+func copy(srcFile, dstFile string) error {
+	srcStat, err := os.Stat(srcFile)
+	if err != nil {
+		return err
+	}
+	if !srcStat.Mode().IsRegular() {
+		return fmt.Errorf("can not copy non-regular source file %s (%q)", srcStat.Name(), srcStat.Mode().String())
+	}
+	dstStat, err := os.Stat(dstFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+	} else {
+		return fmt.Errorf("destination already exists %s", dstStat.Name())
+	}
+	src, err := os.Open(srcFile)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	dstDir := path.Dir(dstFile)
+	err = os.MkdirAll(dstDir, 0700)
+	if err != nil {
+		return err
+	}
+	log.Error(dstDir)
+	dst, err := os.Create(dstFile)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return err
+	}
+	dst.Sync()
+	err = os.Chtimes(dstFile, srcStat.ModTime(), srcStat.ModTime())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func processFile(file string) error {
 	log.WithField("file", file).Debug("Processing")
 	f, err := os.Open(file)
@@ -87,9 +131,13 @@ func processFile(file string) error {
 	datetime := fmt.Sprintf("%d%02d%02d%02d%02d%02d", date.Year(), date.Month(), date.Day(), date.Hour(), date.Minute(), date.Second())
 	md5sum := hex.EncodeToString(hasher.Sum(nil))
 	if ic.force || !wasProcessed(datetime, md5sum) {
-		path := fmt.Sprintf("%04d/%02d/%02d", date.Year(), date.Month(), date.Day())
-		dest := fmt.Sprintf("%s/%s/%s_%s", ic.to, path, datetime, md5sum)
+		dir := fmt.Sprintf("%04d/%02d/%02d", date.Year(), date.Month(), date.Day())
+		dest := fmt.Sprintf("%s/%s/%s_%s%s", ic.to, dir, datetime, md5sum, ext)
 		log.WithField("file", file).Infof("copy to %s", dest)
+		err = copy(file, dest)
+		if err != nil {
+			log.WithField("file", file).Errorf("Copy failed with %s", err.Error())
+		}
 		markProcessed(datetime, md5sum)
 	} else {
 		log.WithField("file", file).Info("Already processed before. SKIP")
