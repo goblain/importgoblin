@@ -39,15 +39,17 @@ var imageExtensions = map[string]string{
 var db *sql.DB
 
 func excluded(filepath string) bool {
-	if strings.Contains(filepath, ic.exclude) {
+	if len(ic.exclude) > 0 && strings.Contains(filepath, ic.exclude) {
 		return true
 	}
 	return false
 }
 
 func getFilesToProcess() []string {
+	log.Debug("getFilesToProcess - " + ic.from)
 	files := []string{}
 	filepath.Walk(ic.from, func(filepath string, f os.FileInfo, err error) error {
+		log.Debug("filepath.Walk - " + filepath)
 		if excluded(filepath) {
 			return nil
 		}
@@ -243,6 +245,7 @@ func markProcessed(datetime, hash string) error {
 }
 
 func dbInit() {
+	log.Debug("dbInit()")
 	var err error
 	os.MkdirAll(path.Base(ic.db), 0700)
 	db, err = sql.Open("sqlite3", ic.db)
@@ -266,7 +269,9 @@ func dbInit() {
 
 func importAll() {
 	dbInit()
+	log.Debug("Process files")
 	for _, file := range getFilesToProcess() {
+		log.Debug(file)
 		err := processFile(file)
 		if err != nil {
 			log.WithField("file", file).Error(err.Error())
@@ -275,6 +280,7 @@ func importAll() {
 }
 
 func main() {
+	// log.SetLevel(log.DebugLevel)
 	rootCmd := &cobra.Command{
 		Use:   "importgoblin",
 		Short: "Image rename and move tool",
