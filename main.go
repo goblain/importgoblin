@@ -34,6 +34,7 @@ var imageExtensions = map[string]string{
 	".jpg":  "jpg",
 	".jpeg": "jpg",
 	".png":  "png",
+	".mp4":  "mp4",
 }
 
 var db *sql.DB
