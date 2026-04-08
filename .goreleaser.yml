@@ -1,38 +1,25 @@
+version: 2
+
 project_name: importgoblin
 
 builds:
-  - id: linux
-    main: ./main.go
-    binary: importgoblin
-    goos:
-      - linux
-    goarch:
-      - amd64
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s
-      - -w
-
-  # - id: windows
-  #   main: ./main.go
-  #   binary: importgoblin
-  #   goos:
-  #     - windows
-  #   goarch:
-  #     - amd64
-  #   env:
-  #     - CGO_ENABLED=1
-  #   ldflags:
-  #     - -s
-  #     - -w
+- id: importgoblin
+  main: ./main.go
+  binary: importgoblin
+  goos:
+    - linux
+  goarch:
+    - amd64
+  env:
+    - CGO_ENABLED=1
+  ldflags:
+    - -s
+    - -w
 
 archives:
-  - format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - README.md
-      - importgoblin
+- formats:
+  - binary
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 release:
   github:
