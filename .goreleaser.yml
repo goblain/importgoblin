@@ -14,18 +14,18 @@ builds:
       - -s
       - -w
 
-  - id: windows
-    main: ./main.go
-    binary: importgoblin
-    goos:
-      - windows
-    goarch:
-      - amd64
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s
-      - -w
+  # - id: windows
+  #   main: ./main.go
+  #   binary: importgoblin
+  #   goos:
+  #     - windows
+  #   goarch:
+  #     - amd64
+  #   env:
+  #     - CGO_ENABLED=1
+  #   ldflags:
+  #     - -s
+  #     - -w
 
 archives:
   - format: tar.gz
